@@ -8,6 +8,8 @@ import java.util.Queue;
 
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.jsoup.nodes.Node;
+
 
 import redis.clients.jedis.Jedis;
 
@@ -54,9 +56,46 @@ public class WikiCrawler {
 	 * @throws IOException
 	 */
 	public String crawl(boolean testing) throws IOException {
-        // FILL THIS IN!
-		return null;
-	}
+//		System.out.println("HERE IS QUEUE");
+//		System.out.println(queue);
+		if (queue.isEmpty()) {
+            return null;
+        }
+        String url = queue.peek();
+//        System.out.println("Crawling " + url);
+//        System.out.println("HERE IS QUEUE NOW");
+//		System.out.println(queue);
+//		System.out.println("TESTING VALUE");
+//		System.out.println(testing);
+ 
+        if (testing==false && index.isIndexed(url)) {
+            System.out.println("Already indexed.");
+            return null;
+        }
+ 
+        Elements paragraphs;
+        if (testing == true) {
+        	queue.remove(url);
+            paragraphs = wf.readWikipedia(url);
+//            System.out.println("FETCHED PARAS FOR TRUE");
+            index.indexPage(url, paragraphs);
+//          System.out.println("INDEXED PAGE: " + url);
+            queueInternalLinks(paragraphs);
+//          System.out.println("QUEUED INTERNAL LINKS: " + url);
+        } else {
+        	queue.remove(url);
+            paragraphs = wf.fetchWikipedia(url);
+//            System.out.println("FETCHED PARAS FOR FALSE");
+            index.indexPage(url, paragraphs);
+//          System.out.println("INDEXED PAGE: " + url);
+            queueInternalLinks(paragraphs);
+//          System.out.println("QUEUED INTERNAL LINKS: " + url);
+        }
+        
+        
+        return url;
+    }
+	
 	
 	/**
 	 * Parses paragraphs and adds internal links to the queue.
@@ -65,9 +104,32 @@ public class WikiCrawler {
 	 */
 	// NOTE: absence of access level modifier means package-level
 	void queueInternalLinks(Elements paragraphs) {
-        // FILL THIS IN!
-	}
+		for (Element paragraph: paragraphs) {        
+	        			
+		        			Iterable<Node> iter = new WikiNodeIterable(paragraph);
+		        			for (Node node: iter) {
+		        					
+		        				if (node instanceof Element) {
+		        					//System.out.println("TAG THINGS");
+		        					//System.out.println(node);
+		        					String name = node.nodeName();				
+		        					
+		        					if (name == "a" && node.attr("href").startsWith("/wiki")){
+		        					//System.out.println("Makes it through check");
+		        	
+		        						String url = "https://en.wikipedia.org"+ node.attr("href");
+	//	        						System.out.println("GOING TO");
+	//	        						System.out.println(url);
+		        						queue.add(url);
+	        					}
+	        				}
+	        			}
+	            	}
 
+        }
+	
+
+	
 	public static void main(String[] args) throws IOException {
 		
 		// make a WikiCrawler
@@ -86,7 +148,7 @@ public class WikiCrawler {
 			res = wc.crawl(false);
 
             // REMOVE THIS BREAK STATEMENT WHEN crawl() IS WORKING
-            break;
+//            break;
 		} while (res == null);
 		
 		Map<String, Integer> map = index.getCounts("the");
